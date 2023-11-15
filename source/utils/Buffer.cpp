@@ -23,8 +23,8 @@ int const Buffer::sendMessage(int fd) {
 
 		mes = bufForSend[fd];
 		size = send(fd, &mes[0], mes.size(), 0);
-		if (size == -1)
-			return -1;
+		if (size == SYS_FAILURE)
+			return SYS_FAILURE;
 		bufForSend[fd] = "";
 		if (size < mes.size()) {
 			bufForSend[fd] = mes.substr(size, mes.size());
@@ -42,8 +42,8 @@ int const Buffer::sendMessage(int fd, std::string message) {
 
 		mes = bufForSend[fd];
 		size = send(fd, &mes[0], mes.size(), 0);
-		if (size == -1)
-			return -1;
+		if (size == SYS_FAILURE)
+			return SYS_FAILURE;
 		bufForSend[fd] = "";
 		if (size < mes.size()) {
 			bufForSend[fd] = mes.substr(size, mes.size());

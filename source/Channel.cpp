@@ -58,7 +58,7 @@ void Channel::addClientList(Client* client) {
 		this->userList.insert(std::make_pair(client->getClientFd(), client));
 }
 
-void Channel::delClientList(Client* client) {
+void Channel::deleteClientList(Client* client) {
 	if (this->userList.find(client->getClientFd()) != this->userList.end())
 		this->userList.erase(client->getClientFd());
 }

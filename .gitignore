@@ -1,2 +1,4 @@
 *.o
 ircserv
+.idea
+.vscode

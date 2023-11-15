@@ -24,22 +24,23 @@
  * REMOVE(파일 삭제)
  */
 
-int main(int ac, char* av[]) {
-	// 변수 선언
+const static std::string USAGE = "Usage : ./ircserv [port] [password]";
 
-	// 유효성 검사
+int main(int ac, char* av[]) {
+	
+	std::string port = av[1];
+	std::string password = av[2];
+
 	if (ac != 3) {
-		std::cerr << "Usage : ./ircserv [port] [password]" << std::endl;
+		Print::printError(USAGE);
 		return 1;
 	}
 
-	// 로직
 	try {
-		Server ircServ(av[1], av[2]);
+		Server ircServ(port, password);
 		ircServ.init();
 		ircServ.loop();
-	}
-	catch (std::exception& e) {
-		std::cerr << e.what() << std::endl;
+	} catch (std::exception& e) {
+		Print::printError(e.what());
 	}
 }

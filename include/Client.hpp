@@ -27,7 +27,7 @@ private:
 	bool passPing;
 
 	// 운영자 권한
-	bool op;
+	bool isOperator;
 
 	// final_ping_time
 	time_t finalTime;
@@ -72,7 +72,7 @@ public:
 	void setHost(std::string host);
 	void setUser(std::string user);
 	void setServ(std::string serv);
-	void setTime();
+	void setFinalTime();
 
 	// add
 	void addJoinList(Channel* channel);
@@ -86,7 +86,7 @@ public:
 	// getter
 	int getPassConnect() const;
 	int getClientFd() const;
-	bool getOp() const;
+	bool IsOperator() const;
 	std::string const& getHost() const;
 	std::string const& getNick() const;
 	std::string const& getReal() const;

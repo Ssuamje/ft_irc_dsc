@@ -6,7 +6,7 @@
 #include "../../include/utils/Print.hpp"
 #include <sstream>
 
-int CommandExecute::chkCommand() {
+int CommandExecute::getCommand() {
 	mesvec const& message = Message::getMessage();
 
 	if (!message.size())
@@ -114,7 +114,7 @@ void CommandExecute::user(Client& client, std::string const& serverHost, time_t 
 void CommandExecute::ping(Client& client, std::string const& serverHost) {
 	mesvec const& message = Message::getMessage();
 
-	client.setTime();
+	client.setFinalTime();
 	if (message.size() != 2)
 		error::ERR_NEEDMOREPARAMS(serverHost, message[0]);
 	else if (message[1] != serverHost)

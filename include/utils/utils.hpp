@@ -51,6 +51,12 @@ typedef std::map<std::string, Channel*> chlmap;
 # define CHANNELNAME_LEN 200 // 채널 이름 최대 길이(RFC 1459)
 # define CHANNEL_LIMIT_PER_USER 10 // 클라이언트 당 참가할 수 있는 채널 상항
 
+// system call 실패에 대한 상수
+# define SYS_FAILURE -1
+# define CRLF "\r\n"
+# define CR '\r'
+# define LF '\n'
+
 /*
 	유틸이 할 일
 	0. define 매크로 저장

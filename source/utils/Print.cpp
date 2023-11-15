@@ -25,3 +25,7 @@ void Print::PrintMultiLineNoColor(std::string* message, int size) {
 		std::cout << message[i] << std::endl;
 	}
 }
+
+void Print::printError(std::string message) {
+	std::cerr << "\x1b[" << RED << "m" << message << "\x1b[" << RESET << "m" << std::endl;
+}

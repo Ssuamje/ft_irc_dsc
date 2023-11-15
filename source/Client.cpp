@@ -1,6 +1,6 @@
 #include "../include/Client.hpp"
 
-Client::Client(int fd, in_addr info) : passConnect(0), passPing(false), op(false), fd(fd), info(info), host(inet_ntoa(info)), serv(""), nick(""), real("") {
+Client::Client(int fd, in_addr info) : passConnect(0), passPing(false), isOperator(false), fd(fd), info(info), host(inet_ntoa(info)), serv(""), nick(""), real("") {
 }
 
 Client::~Client() {
@@ -9,7 +9,7 @@ Client::~Client() {
 	for (; it != this->joinList.end(); it++) {
 		if (it->second->getChanOp().getClientFd() == this->fd)
 			it->second->setChanOp(NULL);
-		it->second->delClientList(this);
+		it->second->deleteClientList(this);
 	}
 	close(fd);
 }
@@ -70,12 +70,12 @@ void Client::setServ(std::string serv) {
 	this->serv = serv;
 }
 
-void Client::setTime() {
+void Client::setFinalTime() {
 	this->finalTime = time(NULL);
 }
 
-bool Client::getOp() const {
-	return this->op;
+bool Client::IsOperator() const {
+	return this->isOperator;
 }
 
 int Client::getPassConnect() const {

@@ -39,11 +39,14 @@ class Channel;
 	5. 클라이언트에 주기적으로 핑 보내기
 	6. 시그널 핸들링
 */
+
+# define CNT_EVENT_POOL 15
+
 class Server {
 	typedef std::vector<struct kevent> kquvec;
 private:
 	// irc 서버로서 가져야 할 기본 정보들
-	int servSock;
+	int serverSocket;
 	struct sockaddr_in servAddr;
 	std::string password;
 	std::string opName;
@@ -58,7 +61,7 @@ private:
 
 	// 소켓 이용 통신 및 명령어 집행 시 필요
 	int kq;
-	kquvec connectingFds;
+	kquvec eventListToRegister;
 
 	// client, channel 명단
 	cltmap clientList;
@@ -77,22 +80,22 @@ public:
 	void loop();
 
 	// event 넣기
-	void pushEvents(kquvec& list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata);
+	void pushEventToList(kquvec& list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata);
 
 	// 클라이언트 생성 및 삭제
 	void addClient(int fd);
-	void delClient(int fd);
+	void deleteClient(int fd);
 
 	// 채널 생성 및 삭제
 	void addChannel(std::string& chName, Client* client);
 	void delChannel(std::string& chName);
 
 	// 클라이언트와 연결 확인
-	void monitoring();
+	void handleDisconnectedClients();
 
 	// I/O
-	void chkReadMessage(int fd, intptr_t data);
-	void chkSendMessage(int fd);
+	void handleReadEvent(int fd, intptr_t data);
+	void handleWriteEvent(int fd);
 
 	// private 변수 내용물 받기
 	int const& getServerSocket() const;
@@ -101,7 +104,10 @@ public:
 	int const& getPort() const;
 	std::string const& getPassword() const;
 	Client& getOp() const;
-	time_t const& getServStartTime() const;
+	time_t const& getStartTime() const;
+
+	bool containsCurrentEvent(uintptr_t ident);
+	bool isServerEvent(uintptr_t ident);
 
 	// 에러 처리
 };
