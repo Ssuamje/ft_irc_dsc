@@ -46,7 +46,7 @@ class Server {
 	typedef std::vector<struct kevent> kquvec;
 private:
 	// irc 서버로서 가져야 할 기본 정보들
-	int servSock;
+	int serverSocket;
 	struct sockaddr_in servAddr;
 	std::string password;
 	std::string opName;
@@ -61,7 +61,7 @@ private:
 
 	// 소켓 이용 통신 및 명령어 집행 시 필요
 	int kq;
-	kquvec eventsToRegister;
+	kquvec eventListToRegister;
 
 	// client, channel 명단
 	cltmap clientList;
@@ -80,7 +80,7 @@ public:
 	void loop();
 
 	// event 넣기
-	void pushEvents(kquvec& list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata);
+	void pushEventToList(kquvec& list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata);
 
 	// 클라이언트 생성 및 삭제
 	void addClient(int fd);

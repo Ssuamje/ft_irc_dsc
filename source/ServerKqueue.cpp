@@ -72,7 +72,7 @@ void Server::init() {
 	// 서버의 소켓을 연다. PF_INET는 IPv4,
 	// SOCK_STREAM은 TCP 프로토콜을 사용하는 연결 지향형 소켓
 	// socket() 함수는 PF_INET에 맞는 기본 프로토콜
-	if ((this->servSock = socket(PF_INET, SOCK_STREAM, 0)) == -1)
+	if ((this->serverSocket = socket(PF_INET, SOCK_STREAM, 0)) == -1)
 		throw std::runtime_error("Error : server socket is wrong");
 
 	// 서버의 주소 값을 초기화, socket_internet의 family, address, port를 지정
@@ -83,10 +83,10 @@ void Server::init() {
 
 
 	// event를 kqueue에 추가한다.
-	// eventsToRegister는 현재 서버와 연결된 fd를 포함한 kevent vector다.
+	// eventListToRegister는 현재 서버와 연결된 fd를 포함한 kevent vector다.
 	// EVFILT_READ는 파일 디스크립터에서 읽기 가능한 데이터가 있는지를 검사하는 필터
 	// 이벤트를 추가, 활성화 한다.
-	pushEvents(this->eventsToRegister, this->servSock, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
+	pushEventToList(this->eventListToRegister, this->serverSocket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
 
 	// 서버의 소켓 옵션을 설정한다. default 세팅이라고 생각하면 된다.
 	// SOL_SOCKET: 옵션의 레벨(level)을 지정합니다. SOL_SOCKET은 일반적인 소켓 옵션을 설정하는 데 사용
@@ -95,21 +95,21 @@ void Server::init() {
 	// 옵션 값의 크기
 
 	bool isReuseAddr = true;
-	setsockopt(servSock, SOL_SOCKET, SO_REUSEADDR, &isReuseAddr, sizeof(int));
+	setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &isReuseAddr, sizeof(int));
 
 	// bind() 함수는 소켓에 주소를 할당하는 함수
 	// 서버 소켓에 주소를 할당한다.
-	if (bind(servSock, (struct sockaddr*)&servAddr, sizeof(servAddr)) == SYS_FAILURE)
+	if (bind(serverSocket, (struct sockaddr*)&servAddr, sizeof(servAddr)) == SYS_FAILURE)
 		throw std::runtime_error("Error : bind");
 
 	// listen() 함수는 소켓을 연결 대기 상태로 만드는 함수
 	// 서버 소켓을 연결 대기 상태로 만든다.
-	if (listen(servSock, CONNECT) == SYS_FAILURE)
+	if (listen(serverSocket, CONNECT) == SYS_FAILURE)
 		throw std::runtime_error("Error : listen");
 
 	// fcntl() 함수는 파일 디스크립터의 플래그를 변경하는 함수
 	// 서브젝트 자체에서 해당 소켓을 논블로킹으로 설정하도록 얘기했음(MacOS의 경우).
-	fcntl(servSock, F_SETFL, O_NONBLOCK);
+	fcntl(serverSocket, F_SETFL, O_NONBLOCK);
 
 	// 서버의 가동 상태를 의미하는 플래그
 	this->running = true;
@@ -121,15 +121,15 @@ void Server::init() {
 // 서버 루프(사실상 run)
 void Server::loop() {
 	int cntNewEvents;
-	struct kevent eventList[CNT_EVENT_POOL];
+	struct kevent newEvents[CNT_EVENT_POOL];
 
 	Print::PrintLineWithColor("[" + getStringTime(getCurTime()) + "] server start!", BLUE);
 
 	// 루프로 계속 kqueue에 이벤트가 있는지 확인한다.
 	while (this->running) {
 
-		// kq는 서버에서 관리하는 kqueue fd고, eventsToRegister는 이벤트를 확인하기 위한 kevent 구조체의 리스트
-		// this->eventsToRegister.size()는 목록에 포함된 이벤트의 수를 나타낸다.
+		// kq는 서버에서 관리하는 kqueue fd고, eventListToRegister는 이벤트를 확인하기 위한 kevent 구조체의 리스트
+		// this->eventListToRegister.size()는 목록에 포함된 이벤트의 수를 나타낸다.
 
 		/**
 		 * kq는 운영체제 자체에서 관리하는 kqueue에 대한 식별자이다.
@@ -141,12 +141,12 @@ void Server::loop() {
 		 * 서버의 소켓 자체에 write를 하게 되고, 이 경우에 kqueue에서 첫번째로 등록되어 있는 identifier가 server socket이고, read인 이벤트를 발생시킨다.
 		 * 그 경우에, addClient에서 새로운 클라이언트를 등록하고, 이벤트를 추가한다.
 		 */
-		cntNewEvents = kevent(this->kq, &this->eventsToRegister[0], this->eventsToRegister.size(), eventList, CNT_EVENT_POOL, NULL);
+		cntNewEvents = kevent(this->kq, &this->eventListToRegister[0], this->eventListToRegister.size(), newEvents, CNT_EVENT_POOL, NULL);
 
-		this->eventsToRegister.clear();
+		this->eventListToRegister.clear();
 
 		for (int i = 0; i < cntNewEvents; i++) {
-			struct kevent cur = eventList[i];
+			struct kevent cur = newEvents[i];
 			if (cur.flags & EV_ERROR) {
 				if (isServerEvent(cur.ident)) {
 					running = false;
@@ -178,32 +178,32 @@ bool Server::containsCurrentEvent(uintptr_t ident) {
 }
 
 bool Server::isServerEvent(uintptr_t ident) {
-	return (ident == this->servSock);
+	return (ident == this->serverSocket);
 }
 
-void Server::pushEvents(kquvec& list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata) {
-	struct kevent tmp;
+void Server::pushEventToList(kquvec& list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata) {
+	struct kevent toPut;
 
-	EV_SET(&tmp, ident, filter, flags, fflags, data, udata);
-	list.push_back(tmp);
+	EV_SET(&toPut, ident, filter, flags, fflags, data, udata);
+	list.push_back(toPut);
 }
 
 void Server::addClient(int fd) {
-	int clntSock;
+	int clientSocket;
 	struct sockaddr_in clntAdr;
 	socklen_t clntSz;
 
 	clntSz = sizeof(clntAdr);
-	if ((clntSock = accept(fd, (struct sockaddr*)&clntAdr, &clntSz)) == -1)
+	if ((clientSocket = accept(fd, (struct sockaddr*)&clntAdr, &clntSz)) == -1)
 		throw std::runtime_error("Error : accept!()");
-	pushEvents(this->eventsToRegister, clntSock, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
-	pushEvents(this->eventsToRegister, clntSock, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
-	this->clientList.insert(std::make_pair(clntSock, new Client(clntSock, clntAdr.sin_addr)));
-	Buffer::resetReadBuf(clntSock);
-	Buffer::resetSendBuf(clntSock);
-	fcntl(clntSock, F_SETFL, O_NONBLOCK);
+	pushEventToList(this->eventListToRegister, clientSocket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
+	pushEventToList(this->eventListToRegister, clientSocket, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, NULL);
+	this->clientList.insert(std::make_pair(clientSocket, new Client(clientSocket, clntAdr.sin_addr)));
+	Buffer::resetReadBuf(clientSocket);
+	Buffer::resetSendBuf(clientSocket);
+	fcntl(clientSocket, F_SETFL, O_NONBLOCK);
 
-	Print::PrintComplexLineWithColor("[" + getStringTime(time(NULL)) + "] " + "Connected Client : ", clntSock, GREEN);
+	Print::PrintComplexLineWithColor("[" + getStringTime(time(NULL)) + "] " + "Connected Client : ", clientSocket, GREEN);
 }
 
 void Server::deleteClient(int fd) {
@@ -323,7 +323,7 @@ void Server::runCommand(int fd) {
 }
 
 int const& Server::getServerSocket() const {
-	return this->servSock;
+	return this->serverSocket;
 }
 
 std::string const& Server::getHost() const {
