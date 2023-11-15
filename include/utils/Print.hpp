@@ -17,6 +17,7 @@ public:
 	static void PrintLineWithColor(std::string message, Color color);
 	static void PrintMultiLineNoColor(std::string* message, int size);
 	static void PrintMultiLineWithColor(std::string* message, int size, Color color);
+	static void printError(std::string message);
 
 	template<typename S, typename T>
 	static void PrintComplexLineWithColor(S message, T value, Color color) {
