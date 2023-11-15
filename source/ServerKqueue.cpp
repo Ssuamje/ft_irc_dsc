@@ -84,10 +84,12 @@ void Server::init() {
 	/*
 	요약:
 	서버의 메인 소켓(this->servSock)에 대한 읽기 이벤트(EVFILT_READ)를 this->eventListToRegister 벡터에 추가한다.
+	(내부적으로 EV_SET 매크로를 사용해 kevent 구조체를 초기화하고, 이를 this->eventListToRegister 벡터에 추가)
 	이 함수 호출은 kqueue 이벤트 모니터링 시스템을 설정하는 데 사용된다.
 
 	1) 함수 호출 분석
 	this->eventListToRegister: 이벤트를 추가할 kqueue 이벤트 벡터. 이 벡터는 struct kevent 객체들을 저장하며, kqueue에 등록될 각종 이벤트를 관리한다.
+	(struct kevent 구조체는 다양한 유형의 이벤트(예: 파일 디스크립터의 읽기/쓰기 가능, 신호, 타이머 등)를 모니터링하는 데 필요. 이 구조체는 kqueue 시스템을 통해 특정 이벤트의 발생을 감시하고, 그에 따라 적절한 조치를 취할 수 있도록 정보를 제공함.)
 	this->servSock: 이벤트를 감지할 대상인 서버의 메인 소켓 파일 디스크립터.
 	EVFILT_READ: 읽기 이벤트 필터. 새로운 클라이언트 연결이 들어오는 것을 감지하는 데 사용된다.
 	EV_ADD | EV_ENABLE: 이벤트 플래그. EV_ADD는 새 이벤트를 추가하라는 지시이며, EV_ENABLE는 이벤트를 활성화하라는 의미다.
@@ -205,7 +207,7 @@ EV_SET 매크로는 struct kevent 구조체를 초기화하는 데 사용된다.
 
 ident: 이벤트가 연결될 파일 디스크립터 또는 식별자입니다.
 filter: 이벤트의 유형을 지정합니다 (예: EVFILT_READ는 읽기 이벤트).
-flags: 이벤트에 대한 작업을 지정합니다 (예: EV_ADD는 이벤트 추가).
+flags: 이벤트에 대한 작업을 지정합니다 (예: EV_ADD는 이벤트 추가, EV_ENABLE은 이벤트 활성화).
 fflags: 필터별 플래그, 필터에 따라 특정 작동을 정의합니다.
 data: 필터에 의해 사용될 추가 데이터.
 udata: 사용자 정의 데이터, 필터에 의해 사용될 수 있습니다.
@@ -217,6 +219,7 @@ udata: 사용자 정의 데이터, 필터에 의해 사용될 수 있습니다.
 void Server::pushEventToList(kquvec& list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata) {
 	struct kevent toPut;
 
+	// ident: eventListRegister, filter: EVFILT_READ, flags: EV_ADD | EV_ENABLE, fflags: 0, data: 0, udata: NULL
 	EV_SET(&toPut, ident, filter, flags, fflags, data, udata);
 	list.push_back(toPut);
 }
