@@ -4,6 +4,10 @@
 # include "./utils.hpp"
 # include <iostream>
 
+
+/**
+ * 디버그 혹은 색깔을 가진 글자를 출력하는 클래스
+ */
 class Print {
 private:
 	Print();
