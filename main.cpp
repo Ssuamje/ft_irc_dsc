@@ -12,6 +12,18 @@
  * 7. 가능하다면 주석을 달 것
  */
 
+/**
+ * Git 컨벤션
+ *
+ * 커밋 메시지(prefix)
+ * FEAT(기능 추가), ex) FEAT: 새로운 기능 추가
+ * FIX(고치거나 개선),
+ * DOCS(문서 관련),
+ * REFACTOR(리팩토링),
+ * MOVE(파일 이동이나 이름 변경),
+ * REMOVE(파일 삭제)
+ */
+
 int main(int ac, char* av[]) {
 	// 변수 선언
 
