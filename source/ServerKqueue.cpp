@@ -152,8 +152,9 @@ void Server::loop() {
 					running = false;
 					break ;
 				}
-				else
+				else {
 					deleteClient(cur.ident);
+				}
 			}
 			if (cur.flags & EVFILT_READ) {
 				if (isServerEvent(cur.ident)) {
