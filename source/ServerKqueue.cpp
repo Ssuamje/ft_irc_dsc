@@ -117,13 +117,29 @@ void Server::init() {
 	this->startTime = getCurTime();
 }
 
+// 서버 루프(사실상 run)
 void Server::loop() {
 	int new_events;
 	struct kevent eventList[15];
 
 	Print::PrintLineWithColor("[" + getStringTime(getCurTime()) + "] server start!", BLUE);
 
-	while (running) {
+	// 루프로 계속 kqueue에 이벤트가 있는지 확인한다.
+	while (this->running) {
+
+		// kq는 서버에서 관리하는 kqueue fd고, connectingFds는 이벤트를 확인하기 위한 kevent 구조체의 리스트
+		// this->connectingFds.size()는 목록에 포함된 이벤트의 수를 나타낸다.
+
+		/**
+		 * kq는 운영체제 자체에서 관리하는 kqueue에 대한 식별자이다.
+		 * 이 상황에서, connetingFds는 서버 어플리케이션 자체에서 kqueue에 등록하고자 하는 이벤트들의 리스트다.
+		 * kevent를 호출하면, 커널에서는 kqueue에 등록된 kevent 구조체들에 대해서, 이벤트가 발생한 경우 eventList에 새 이벤트들을 담아준다.
+		 *
+		 * 동작 흐름
+		 * 첫 이벤트는 server socket에 대한 read 이벤트를 등록해놓는다. 이 이벤트를 등록하면, 클라이언트가 새롭게 연결을 요청할 때에,
+		 * 서버의 소켓 자체에 write를 하게 되고, 이 경우에 kqueue에서 첫번째로 등록되어 있는 identifier가 server socket이고, read인 이벤트를 발생시킨다.
+		 * 그 경우에, addClient에서 새로운 클라이언트를 등록하고, 이벤트를 추가한다.
+		 */
 		new_events = kevent(this->kq, &this->connectingFds[0], this->connectingFds.size(), eventList, 15, NULL);
 
 		this->connectingFds.clear();
@@ -149,6 +165,8 @@ void Server::loop() {
 					chkSendMessage(eventList[i].ident);
 			}
 		}
+		// 새 이벤트에 대한 처리가 끝난 이후에 다음 루프를 돌기 전에,
+		// 클라이언트와의 연결 상태를 확인한다.
 		monitoring();
 	}
 }
