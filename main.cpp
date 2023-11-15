@@ -29,7 +29,7 @@ const std::string USAGE = "Usage : ./ircserv [port] [password]";
 int main(int ac, char* av[]) {
 
 	if (ac != 3) {
-		std::cerr << USAGE << std::endl;
+		Print::printError(USAGE);
 		return 1;
 	}
 
