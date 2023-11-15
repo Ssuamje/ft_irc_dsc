@@ -72,7 +72,7 @@ public:
 	void setHost(std::string host);
 	void setUser(std::string user);
 	void setServ(std::string serv);
-	void setTime();
+	void setFinalTime();
 
 	// add
 	void addJoinList(Channel* channel);

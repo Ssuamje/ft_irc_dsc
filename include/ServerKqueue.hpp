@@ -104,7 +104,7 @@ public:
 	int const& getPort() const;
 	std::string const& getPassword() const;
 	Client& getOp() const;
-	time_t const& getServStartTime() const;
+	time_t const& getStartTime() const;
 
 	bool containsCurrentEvent(uintptr_t ident);
 	bool isServerEvent(uintptr_t ident);

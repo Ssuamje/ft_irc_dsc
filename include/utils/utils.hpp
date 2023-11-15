@@ -53,6 +53,9 @@ typedef std::map<std::string, Channel*> chlmap;
 
 // system call 실패에 대한 상수
 # define SYS_FAILURE -1
+# define CRLF "\r\n"
+# define CR '\r'
+# define LF '\n'
 
 /*
 	유틸이 할 일

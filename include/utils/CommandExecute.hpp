@@ -6,7 +6,7 @@
 # include "../Channel.hpp"
 
 namespace CommandExecute {
-	int chkCommand();
+	int getCommand();
 	void motd(Client& client, std::string const& serverHost);
 	void pass(Client& client, std::string const& password, std::string const& serverHost);
 	void nick(Client& client, cltmap& clientList, std::string const& serverHost);

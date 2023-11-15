@@ -266,7 +266,7 @@ void Server::handleReadEvent(int fd, intptr_t data) {
 	int suffixFlag = 0;
 	int cut;
 
-	this->clientList[fd]->setTime();
+	this->clientList[fd]->setFinalTime();
 	byte = Buffer::readMessage(fd, data);
 
 	if (byte == -1)
@@ -276,12 +276,12 @@ void Server::handleReadEvent(int fd, intptr_t data) {
 
 	buffer = Buffer::getReadBuf(fd);
 	Buffer::resetReadBuf(fd);
-	while (1) {
-		if ((size = buffer.find("\r\n")) != std::string::npos) {
+	while (true) {
+		if ((size = buffer.find(CRLF)) != std::string::npos) {
 			suffixFlag = 0;
-		} else if ((size = buffer.find("\r")) != std::string::npos) {
+		} else if ((size = buffer.find(CR)) != std::string::npos) {
 			suffixFlag = 1;
-		} else if ((size = buffer.find("\n")) != std::string::npos) {
+		} else if ((size = buffer.find(LF)) != std::string::npos) {
 			suffixFlag = 2;
 		} else {
 			break;
@@ -305,12 +305,12 @@ void Server::handleReadEvent(int fd, intptr_t data) {
 }
 
 void Server::handleWriteEvent(int fd) {
-	this->clientList[fd]->setTime();
+	this->clientList[fd]->setFinalTime();
 	Buffer::sendMessage(fd);
 }
 
 void Server::runCommand(int fd) {
-	switch (CommandExecute::chkCommand()) {
+	switch (CommandExecute::getCommand()) {
 		// 각 case에 대한 CommandHandle 멤버 함수 연계
 		case IS_PASS:
 			CommandExecute::pass(*this->clientList[fd], this->password, this->host);
@@ -325,7 +325,7 @@ void Server::runCommand(int fd) {
 			CommandExecute::ping(*this->clientList[fd], this->host);
 			break;
 		case IS_PONG:
-			this->clientList[fd]->setTime();
+			this->clientList[fd]->setFinalTime();
 			break;
 		case IS_MODE:
 			CommandExecute::mode(*this->clientList[fd], this->channelList, this->host);
@@ -366,6 +366,6 @@ Client& Server::getOp() const {
 	return *this->op;
 }
 
-time_t const& Server::getServStartTime() const {
+time_t const& Server::getStartTime() const {
 	return this->startTime;
 }

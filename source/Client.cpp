@@ -70,7 +70,7 @@ void Client::setServ(std::string serv) {
 	this->serv = serv;
 }
 
-void Client::setTime() {
+void Client::setFinalTime() {
 	this->finalTime = time(NULL);
 }
 
