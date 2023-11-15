@@ -105,7 +105,7 @@ void Server::init() {
 	// 서버의 소켓 옵션을 설정한다. default 세팅이라고 생각하면 된다.
 	// SOL_SOCKET: 옵션의 레벨(level)을 지정합니다. SOL_SOCKET은 일반적인 소켓 옵션을 설정하는 데 사용
 	// SO_REUSEADDR: 설정하려는 옵션의 이름입니다. SO_REUSEADDR은 주로 TCP 소켓에서 사용되며, 이 옵션을 설정함으로써 이전에 사용된 주소와 포트를 즉시 재사용
-	// &yes: 옵션의 값을 설정하는 매개변수입니다. 여기서 yes는 int형 변수로, SO_REUSEADDR 옵션을 사용할 것이므로 일반적으로 1로 설정됩니다. 이는 해당 소켓이 이전에 사용된 주소를 재사용할 수 있도록 허용
+	// &isReuseAddr: SO_REUSEADDR 옵션을 사용할 것이므로 일반적으로 1로 설정: 해당 소켓이 이전에 사용된 주소를 재사용할 수 있도록 허용
 	// 옵션 값의 크기
 	bool isReuseAddr = true;
 	setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &isReuseAddr, sizeof(int));
@@ -131,7 +131,7 @@ void Server::init() {
 	this->startTime = getCurTime();
 }
 
-// 서버 루프(사실상 run)
+// 서버 루프 (실질적 서버의 동작부)
 void Server::loop() {
 	int cntNewEvents;
 	struct kevent newEvents[CNT_EVENT_POOL];
@@ -140,22 +140,44 @@ void Server::loop() {
 
 	// 루프로 계속 kqueue에 이벤트가 있는지 확인한다.
 	while (this->running) {
-
-		// kq는 서버에서 관리하는 kqueue fd고, eventListToRegister는 이벤트를 확인하기 위한 kevent 구조체의 리스트
-		// this->eventListToRegister.size()는 목록에 포함된 이벤트의 수를 나타낸다.
-
-		/**
-		 * kq는 운영체제 자체에서 관리하는 kqueue에 대한 식별자이다.
-		 * 이 상황에서, eventListToRegister는 서버 어플리케이션 자체에서 kqueue에 등록하고자 하는 이벤트들의 리스트다.
-		 * kevent를 호출하면, 커널에서는 kqueue에 등록된 kevent 구조체들에 대해서, 이벤트가 발생한 경우 eventList에 새 이벤트들을 담아준다.
-		 *
-		 * 동작 흐름
-		 * 첫 이벤트는 server socket에 대한 read 이벤트를 등록해놓는다. 이 이벤트를 등록하면, 클라이언트가 새롭게 연결을 요청할 때에,
-		 * 서버의 소켓 자체에 write를 하게 되고, 이 경우에 kqueue에서 첫번째로 등록되어 있는 identifier가 server socket이고, read인 이벤트를 발생시킨다.
-		 * 그 경우에, addClient에서 새로운 클라이언트를 등록하고, 이벤트를 추가한다.
-		 */
+		
 		cntNewEvents = kevent(this->kq, &this->eventListToRegister[0], this->eventListToRegister.size(), newEvents, CNT_EVENT_POOL, NULL);
+		/*
+		kevent 함수는 kqueue에서 이벤트를 등록, 수정, 삭제하거나 발생한 이벤트를 감지하고 처리하는 데 사용된다.
 
+		this->kq:
+		kqueue의 파일 디스크립터. kqueue 시스템 호출을 통해 생성되며, 이벤트를 모니터링할 kqueue 인스턴스를 식별한다.
+		
+		&this->eventListToRegister[0]:
+		this->eventListToRegister는 등록할 이벤트들의 struct kevent 객체들을 담고 있는 벡터다.
+		&this->eventListToRegister[0]는 이 벡터의 첫 번째 요소, 즉 첫 struct kevent 객체의 주소를 가리킨다.
+		이 주소는 kevent 함수에게 등록하거나 변경할 이벤트들의 목록을 제공한다.
+		
+		this->eventListToRegister.size():
+		이 인자는 벡터에 들어 있는 struct kevent 객체들의 수를 나타낸다.
+		kevent 함수는 이 수만큼의 이벤트를 처리하려고 시도한다.
+		
+		newEvents:
+		newEvents는 struct kevent 타입의 배열로, 발생한 이벤트들의 정보를 저장한다.
+		kevent 함수는 발생한 이벤트들을 이 배열에 채운다.
+		
+		CNT_EVENT_POOL:
+		이 인자는 newEvents 배열의 크기를 나타낸다.
+		배열이 담을 수 있는 최대 이벤트 수를 지정한다.
+		
+		NULL:
+		이는 kevent 호출의 타임아웃을 설정하는 struct timespec 포인터다.
+		여기서 NULL은 타임아웃 없이 이벤트가 발생할 때까지 kevent가 블로킹 상태로 대기하게 한다.
+		
+		함수 호출의 동작 흐름
+		kevent 함수는 먼저 &this->eventListToRegister[0]에서 제공된 이벤트 목록을 kqueue에 등록하거나 업데이트한다.
+		(첫 이벤트는 server socket에 대한 read 이벤트를 등록해놓는다. 이 이벤트를 등록하면, 클라이언트가 새롭게 연결을 요청할 때에,
+		 서버의 소켓 자체에 write를 하게 되고, 이 경우에 kqueue에서 첫번째로 등록되어 있는 identifier가 server socket이고, read인 이벤트를 발생시킨다.
+		 그 경우에, addClient에서 새로운 클라이언트를 등록하고, 이벤트를 추가한다.)
+		그런 다음, 함수는 새로 발생한 이벤트들을 감지하고, 이를 newEvents 배열에 채운다. cntNewEvents는 발생한 이벤트의 수를 반환받는다.
+		함수가 반환된 후, newEvents 배열은 발생한 이벤트들의 정보를 담고 있으며, 이를 통해 서버는 적절한 반응을 할 수 있다.
+		이러한 방식으로 kevent 함수는 kqueue를 통해 다수의 이벤트를 효율적으로 관리하고, 서버는 이를 이용해 여러 클라이언트와의 통신을 동시에 처리할 수 있다.
+		*/
 		this->eventListToRegister.clear();
 
 		for (int i = 0; i < cntNewEvents; i++) {
