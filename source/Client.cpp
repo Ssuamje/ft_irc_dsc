@@ -9,7 +9,7 @@ Client::~Client() {
 	for (; it != this->joinList.end(); it++) {
 		if (it->second->getChanOp().getClientFd() == this->fd)
 			it->second->setChanOp(NULL);
-		it->second->delClientList(this);
+		it->second->deleteClientList(this);
 	}
 	close(fd);
 }

@@ -67,7 +67,7 @@ public:
 
 	// del
 	void delInviteList(Client* client);
-	void delClientList(Client* client);
+	void deleteClientList(Client* client);
 
 	// getter
 	Client const& getChanOp() const;

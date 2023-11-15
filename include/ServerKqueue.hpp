@@ -39,6 +39,9 @@ class Channel;
 	5. 클라이언트에 주기적으로 핑 보내기
 	6. 시그널 핸들링
 */
+
+# define CNT_EVENT_POOL 15
+
 class Server {
 	typedef std::vector<struct kevent> kquvec;
 private:
@@ -58,7 +61,7 @@ private:
 
 	// 소켓 이용 통신 및 명령어 집행 시 필요
 	int kq;
-	kquvec connectingFds;
+	kquvec eventsToRegister;
 
 	// client, channel 명단
 	cltmap clientList;
@@ -81,18 +84,18 @@ public:
 
 	// 클라이언트 생성 및 삭제
 	void addClient(int fd);
-	void delClient(int fd);
+	void deleteClient(int fd);
 
 	// 채널 생성 및 삭제
 	void addChannel(std::string& chName, Client* client);
 	void delChannel(std::string& chName);
 
 	// 클라이언트와 연결 확인
-	void monitoring();
+	void handleDisconnectedClients();
 
 	// I/O
-	void chkReadMessage(int fd, intptr_t data);
-	void chkSendMessage(int fd);
+	void handleReadEvent(int fd, intptr_t data);
+	void handleWriteEvent(int fd);
 
 	// private 변수 내용물 받기
 	int const& getServerSocket() const;
@@ -102,6 +105,9 @@ public:
 	std::string const& getPassword() const;
 	Client& getOp() const;
 	time_t const& getServStartTime() const;
+
+	bool containsCurrentEvent(uintptr_t ident);
+	bool isServerEvent(uintptr_t ident);
 
 	// 에러 처리
 };

@@ -24,9 +24,12 @@
  * REMOVE(파일 삭제)
  */
 
-const std::string USAGE = "Usage : ./ircserv [port] [password]";
+const static std::string USAGE = "Usage : ./ircserv [port] [password]";
 
 int main(int ac, char* av[]) {
+	
+	std::string port = av[1];
+	std::string password = av[2];
 
 	if (ac != 3) {
 		Print::printError(USAGE);
@@ -34,7 +37,7 @@ int main(int ac, char* av[]) {
 	}
 
 	try {
-		Server ircServ(av[1], av[2]);
+		Server ircServ(port, password);
 		ircServ.init();
 		ircServ.loop();
 	} catch (std::exception& e) {
