@@ -1,0 +1,127 @@
+## 클래스
+### 서버
+- 논블럭 소켓 관리
+	- 엣지 트리거로 구현할 거면 kqueue
+		- 이건 한 번 해볼 예정. EWOULD_BLOCK을 어떻게 피해갈지 아이디어를 얻었음.
+	- 레벨 트리거로 구현할 거면 poll
+- 역할
+	- 전체적인 구조를 형성하고 관리
+		- 소켓, 클라이언트 목록, 채널 목록, read/send 버퍼, 각 소켓 time-out 검사, 시그널 핸들링 등
+	- poll에 의한 이벤트 관리
+		- loop() 함수를 통해 poll 이벤트를 관리하고 이벤트 관리 명단에 들어가 있는 각 소켓을 실제 이벤트에 따라 분기를 구성하여 실행 및 관리
+	- 명령 핸들러 클래스와 연계하여 명령어 처리
+		- 명령 핸들러 쪽에서 메세지를 파싱하고 명령어를 확인
+		- 명령어에 맞는 플래그를 보냄
+		- 플래그를 확인한 서버가 명령 핸들러 객체의 멤버 함수 중에서 각 명령에 맞는 함수를 실행
+		- 함수 결과에 따라 필요한 조치를 서버가 시행
+	- 서버 실행 시 에러에 따른 조치 사항
+		- subject에서 서버는 I/O 과정에서 도중에 중단되지 말아야 한다는 규칙이 있다. 그렇기에 fatal_error를 통해 나가야 할 경우, loop()의 while (running) 부분의 running 플래그를 false로 바꾸고 자연스럽게 while 반복문을 빠져나간다
+		- 그 후에 소멸자에서 동적 할당된 부분과 남아있는 소켓들을 전부 close
+- 변수
+	- int serv_sock : 서버 소켓
+	- struct sockaddr_in serv_addr : 서버의 주소체계를 저장할 자료
+	- std::string password : 암호
+	- std::string op_name : 클라이언트가 IRC 서버 운영자 권한을 얻고자 할 때, 넣을 이름 매개변수
+	- std::string op_password : 클라이언트가 IRC 서버 운영자 권한을 얻고자 할 때, 넣을 암호 매개변수
+	- std::string host : 서버 호스트명
+	- int port : 서버가 사용하는 포트 번호
+	- Client* op : 운영자 권한을 획득한 클라이언트
+	- time_t start_time : 서버가 언제 시동했는 지 시간을 기록
+	- bool running : 서버 실행/종료 플래그
+	- CommandHandel* hadler : 명령어 파싱과 명령 실행 처리를 담당하는 핸들러
+	- pollvec conn_fds : poll 이벤트 관리를 위한 구조체 pollfds를 각 소켓 별로 저장해 놓은 것. 즉, 서버와 연결된 소켓 집합으로 보면 됨.
+	- cltmap clients : fd 별로 각 클라이언트 포인터가 들어간, 클라이언트 목록
+	- chlmap channels : 채널명을 key로 받고 채널 포인터가 value로 들어가는 채널 목록
+	- fdmap read_buf : 각 소켓 별로 POLL_IN 이벤트를 수신하여 읽어 들인 내용을 저장할 버퍼. 후에, read_message 함수에서 버퍼에 "\\r\\n"이 있는 경우, 메세지 파싱을 시작한다.
+		- 왜냐하면 IRC 메세지는 항상 메세지 끝에 "\\r\\n"을 붙이기 때문이다
+	- fdmap send_buf : 각 소켓 별로 POLL_OUT 또는 메세지 파싱 이후에 명령어 명세에 맞게 각 소켓에 보내기 위해 만든 내용을 저장할 버퍼. 버퍼에 있는 내용을 보내고 만약, 어떠한 문제로 전부 보내지 못하면 남은 내용을 다시 버퍼에 저장하고 추후에 재송신한다
+- 함수
+	- 생성자 : Server(std::string port, std::string password)
+		- argc 인자로 받은 port와 password를 받아 IRC 명세에 맞춰서 적절한 문자가 들어갔는 지, port는 정당하게 받을 수 있는 port 번호 범위 내에 들어가있는 지 확인하고 private 변수인 port와 password에 넣는다. 그 외, 나머지 변수들도 이 때 미리 초기화.
+	- 소멸자 : ~Server()
+		- 동적 할당을 받은 내용물들(client, channel, command handle)의 내용물을 전부 delete하고 빠져나간다
+	- void init()
+		- 본격적으로 루프를 돌기 전에 서버 소켓을 만들고 클라이언트를 받을 준비를 한다.
+			- socket -> bind -> listen
+			- fcntl(serv_sock, F_SFTFL, O_NONBLOCK) : 서버 소켓 논블럭
+			- CommandHandle 미리 동적 할당
+			- loop를 돌기 위한 while(runnning)의 running 플래그를 true로 설정
+	- void loop()
+		- while(running) 문을 돌면서 poll 함수를 이용, 이벤트를 감지하며 이벤트에 따른 필요한 내용을 수행
+		- poll 함수를 이용해 서버 소켓이나 클라이언트 소켓에서 버퍼를 채웠는 지 확인
+		- 버퍼를 채운 소켓이 감지되거나, 별도로 설정한 시간 제한에 도달하면 poll 함수를 빠져나온다
+		- poll 함수에서 나오면 각 소켓마다 실제 발생한 이벤트를 확인하고 이벤트에 걸맞게 대응을 한다
+			- pollhup : 오류 발생
+				- serv_sock : server 종료 준비
+				- clnt_sock : 해당 클라이언트를 삭제
+			- pollin : 버퍼에 내용물이 채워짐
+				- serv_sock : 현재 서버 소켓은 listen 용이다. 대기열에 있던 소켓 중에서 하나가 연결되었다는 의미이니 addclient 함수를 이용하여 새로 클라이언트 소켓을 만든다
+				- clnt_sock : 클라이언트 쪽에서 메세지를 보냈다. readmessage 함수를 이용해서 읽는다
+			- pollout : 버퍼에 쓸 공간이 있음
+				- poll 함수는 레벨 트리거이며 레벨 트리거 함수 특성상 매 순간마다 이벤트 알림을 띄운다. 즉, 버퍼에 비워져 있어서 서버 쪽에서 클라이언트에 내용물을 보낼 수 있는 경우 해당 이벤트를 계속 감지한다.
+				- 이 이벤트를 굳이 확인하는 이유는 혹여 sendbuf에 내용물이 남아있으면 해당 클라이언트에 내용을 보내주기 위함
+	- void addclient(pollvec::iterator& it)
+		- 신규 클라이언트 소켓을 열고자 사용하는 함수
+		- 인자로 들어온 pollfd 구조체를 담은 vector 배열(conn_fds)의 반복자(serv_sock이 들어간 pollfd 구조체를 가리킴)를 이용해 accept 함수로 신규 클라이언트 소켓을 만든다
+		- 신규 클라이언트가 늘어났으니 conn_fds에 추가하고 client 명단에도 추가하고 해당 소켓의 읽고 쓰는 내용물 관리를 위한 read_buf와 send_buf도 추가
+		- 신규 소켓 또한 I/O 작업용이기에 fcntl을 통해 논블럭 소켓으로 만든다
+		- 현재, conn_fds를 순환하는 중에 conn_fds에 신규로 원소가 늘어나면서 반복자가 엉켰다. 그래서 반복자의 위치를 다시 잡아주는 일도 병행한다
+	- void delclient(pollvec::iterator& it)
+		- pollhub 또는 기타 오류나 특정 명령어(QUIT, KILL)나 RFC 명세에 의거하여 클라이언트를 제거해야 할 경우에 사용한다
+		- client 명단 등. 해당 클라이언트의 주소가 배치되어 있거나 해당 클라이언트를 위해 만들어둔 버퍼, pollfd 구조체도 같이 제거한다.
+		- addclient와 마찬가지로 반복자에 변동사항이 생기므로 erase 함수롤 통해 얻는 반복자를 통해 위치를 다시 잡아준다
+	- void addchannel(std::string ch_name)
+		- 채널을 새로 만든다. 미구현
+	- void delchannel(std::string ch_name)
+		- 채널을 삭제한다 미구현
+	- void pingloop()
+		- 클라이언트 명단을 순회하면서 ping 명령을 보내고 정해진 시간 내에 각 클라이언트가 답변을 하는 지 확인하는 함수
+		- 클라이언트의 답변 시간은 pong() 명령을 통해서 최신화할 생각
+		- 미구현
+	- void read_message(pollvec::iterator& it)
+		- pollin 이벤트를 받았을 때 소켓의 버퍼(커널이 할당해준 커널 관리 버퍼, 소켓 관리가 원래 운영체제 소관이기에 버퍼도 커널에서 할당하고 관리한다)에서 내용물을 읽어오는 함수
+		- recv를 통해 버퍼를 읽어서 별도 공간에 저장.
+			- 만약, recv의 반환값이 -1인 경우에는 이게 논블럭으로 인해 발생한 데이터 없음 오류인지 다른 오류인지 알 수 없으나, 어차피 레벨 트리거 방식이라 커널 버퍼에 내용물이 남아있으면 poll이 다시 이벤트를 띄운다. 가볍게 함수 탈출하고 다음 읽을 기회를 노린다.
+			- 반환값이 0이면 소켓이 닫혔다는 의미다. 저쪽 클라이언트가 갑작스럽게 종료되었을 확률이 높으니 잽싸게 delclient() 함수로 후환을 없앤다
+		- 정상적으로 값을 받았으면 버퍼에 IRC 메세지의 끝을 상징하는 "\\r\\n"이 존재하는지 확인한다. 있으면 해당 값을 중심으로 문자열을 잘라가면서 분할된 메세지 하나씩 명령어 파싱을 하고 해당되는 명령어가 있으면 실행한다(command handler)
+		- while()문을 빠져나왔는데 tmp에 남은 내용물이 있으면 이는 클라이언트에서 중간에 버퍼가 가득 차서 덜 온 경우일 수 있으므로 read_buf에 보관하고 다시 poll 함수가 pollin 이벤트를 감지하면 그 때 해결한다
+	- void send_message(int fd), void send_message(int fd, std::string message)
+		- 전자는 pollout 이벤트 감지했을 때 사용하는 함수고 후자는 명령어를 분석한 뒤 클라이언트에 보낼 메세지를 담기 위해 사용하는 함수.
+		- 내부 구성은 거의 다른 게 없으며 send 함수를 통해 읽어들이고 -1은 잽싸게 빠져나가고 만약 message를 전부 보내지 못한 경우, 남은 것만 다시 send_buf에 저장했다가 후일 이벤트가 발생했을 때 더해서 보내준다.
+	- getter는 생략
+### 명령 핸들러
+- 역할
+	- Server가 준 메세지를 파싱하고 명령어인지 아닌지 분석한 뒤, 그에 걸맞는 답을 준비한다
+		- 명령어 : 각 명령어 함수를 실행하고 명세에 맞는 행위를 시행
+		- 명령어 아님 : UNKNOWN COMMAND 숫적 응답 준비
+- 변수
+	- mesvec mes_form : 메세지 파싱한 결과물을 담기 위한 변수. 해당 변수를 이용해서 명령어도 분석하고 숫적 응답도 만들어낸다
+	- Server& server : 서버를 참조하기 위한 변수. 메세지 보내려면 결국 server의 sendmessage도 사용해야하고 이래저래 서버의 변수들이 많이 필요하다.
+- 함수
+	- int parsMessage(std::string& origin) : 메세지 파싱을 위한 함수. 메세지 파싱은 RFC-1459와 modern docs에 나와있는 메세지 ABNF를 따라 구성하였다. 단, 아직 와일드 카드 파싱은 정립이 안 된 상황.
+	- 그 외 명령어 함수 : 전부 명세를 맞춰서 작성해야 함. 현재까지 구현된 함수는 사용자 등록을 위한 PASS, NICK, USER, MOTD.
+### 클라이언트
+- 역할
+	- 단일 클라이언트가 가져야 할 정보들을 저장하는 클래스
+- 변수
+	- int pass_connect : PASS, NICK, USER를 전부 통과했는지 검증하는 용도. 비트 마스킹(PASS = 1, NICK = 2, USER = 4)을 통해 3개 전부 통과하면 값이 7이므로 7인 경우에만 user() 함수에서 MOTD를 부른다
+	- bool pass_ping : ping을 보냈는 지 확인하는 변수. false로 되어 있으면 ping을 보내고 pong을 받았을 때 true로 변경한다
+	- bool op : IRC 운영자 권한을 부여 받았는 지 확인하는 용도. 추후, 운영자 전용 명령어를 추가하면 반드시 확인이 필요하다.
+	- time_t final_time : pong 검사한 시간 기준으로 최신화. 제한 시간 내에 답변을 못해서 죽일 때 사용한다
+	- int fd : clnt_sock
+	- std::string host : 해당 클라이언트의 호스트명. user 명령어와 연관.
+	- std::string nick : 해당 클라이언트의 별칭. user 명령어와 연관
+	- std::string real : 해당 클라이언트의 실명. user 명령어와 연관
+	- std::string user : 해당 클라이언트의 사용자명. user 명령어와 연관
+	- std::string serv : 해당 클라이언트와 직접 연결된 서버명(ip 또는 DNS)
+	- chlist join_list : 클라이언트가 참여하고 있는 채널 목록
+- 함수
+### 채널
+- 역할
+	- 단일 채널이 가져야 할 정보들을 저장하는 클래스
+- 변수
+- 함수
+
+## utils
+- 역할
+	- 일종의 창고. 잡다한 함수 및 define 매크로 작성 등에 사용
