@@ -1,6 +1,6 @@
 #include "../include/Client.hpp"
 
-Client::Client(int fd, in_addr info) : passConnect(0), passPing(false), op(false), fd(fd), info(info), host(inet_ntoa(info)), serv(""), nick(""), real("") {
+Client::Client(int fd, in_addr info) : passConnect(0), passPing(false), isOperator(false), fd(fd), info(info), host(inet_ntoa(info)), serv(""), nick(""), real("") {
 }
 
 Client::~Client() {
@@ -74,8 +74,8 @@ void Client::setTime() {
 	this->finalTime = time(NULL);
 }
 
-bool Client::getOp() const {
-	return this->op;
+bool Client::IsOperator() const {
+	return this->isOperator;
 }
 
 int Client::getPassConnect() const {
