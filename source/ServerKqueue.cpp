@@ -11,26 +11,46 @@ Server::Server(std::string port, std::string password) : opName(""), opPassword(
 	char hostnameBuf[1024];
 	struct hostent* hostStruct;
 
+	/**
+	 * 매개변수로 받은 포트를 long으로 변환, pointer를 이용해서 오류가 있는지 확인한다.
+	 * well-known port 이상인 1023부터 65535까지만 허용한다.
+	 * 이후 서버의 포트를 지정한다.
+	 */
 	strictPort = std::strtol(port.c_str(), &pointer, 10);
-	if (*pointer != 0 || strictPort <= 1000 || strictPort > 65535)
+	if (*pointer != 0 || strictPort <= 1023 || strictPort > 65535)
 		throw std::runtime_error("Error : port is wrong");
+	this->port = static_cast<int>(strictPort);
+
+	/**
+	 * 매개변수로 받은 패스워드를 검증하고, 서버의 패스워드를 지정한다.
+	 */
 	for (size_t i = 0; i < password.size(); i++) {
 		if (password[i] == 0 || password[i] == '\r'
 			|| password[i] == '\n' || password[i] == ':')
 			throw std::runtime_error("Error : password is wrong");
 	}
 	this->password = password;
-	this->port = static_cast<int>(strictPort);
 
+
+	/**
+	 *	호스트의 이름(Domain Name)을 가져온다.
+	 *	예시 : c4r6s5.42seoul.kr
+	 */
 	if (gethostname(hostnameBuf, sizeof(hostnameBuf)) == -1)
-		this->host = "127.0.0.1";
-	else {
-		if (!(hostStruct = gethostbyname(hostnameBuf)))
-			this->host = "127.0.0.1";
-		else
-			this->host = inet_ntoa(*((struct in_addr*)hostStruct->h_addr_list[0]));
-	}
+		throw std::runtime_error("Error : Failed to run gethostname system call!");
+	std::cout << hostnameBuf << std::endl;
 
+	/**
+	 * hostname을 통해 hostent 구조체를 가져온다.
+	 */
+	if (!(hostStruct = gethostbyname(hostnameBuf)))
+		throw std::runtime_error("Error : Failed to run gethostbyname with buffer!");
+
+	// internet_networkToAddress를 통해 hostStruct에 있는 주소를 가져온다. = IPv4 주소
+	// 이 경우, 현재 컴퓨터의 IPv4 주소로 호스트가 지정된다.
+	this->host = inet_ntoa(*((struct in_addr*)hostStruct->h_addr_list[0]));
+
+	// kqueue를 열어보고 안되면 에러처리
 	if ((this->kq = kqueue()) == -1)
 		throw std::runtime_error("kqueue error!");
 }
