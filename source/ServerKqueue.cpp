@@ -81,12 +81,8 @@ void Server::init() {
 	this->servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	this->servAddr.sin_port = htons(this->port);
 
-	// event를 kqueue에 추가한다.
-	// eventListToRegister는 현재 서버와 연결된 fd를 포함한 kevent vector다.
-	// EVFILT_READ는 파일 디스크립터에서 읽기 가능한 데이터가 있는지를 검사하는 필터
-	// 이벤트를 추가, 활성화 한다.
-	pushEventToList(this->eventListToRegister, this->serverSocket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
 	/*
+	요약:
 	서버의 메인 소켓(this->servSock)에 대한 읽기 이벤트(EVFILT_READ)를 this->eventListToRegister 벡터에 추가한다.
 	이 함수 호출은 kqueue 이벤트 모니터링 시스템을 설정하는 데 사용된다.
 
@@ -96,19 +92,19 @@ void Server::init() {
 	EVFILT_READ: 읽기 이벤트 필터. 새로운 클라이언트 연결이 들어오는 것을 감지하는 데 사용된다.
 	EV_ADD | EV_ENABLE: 이벤트 플래그. EV_ADD는 새 이벤트를 추가하라는 지시이며, EV_ENABLE는 이벤트를 활성화하라는 의미다.
 	0, 0, NULL: kevent 함수의 추가 인자들로, 이 경우 특별한 기능을 수행하지 않는다.
+	
 	2) 코드의 목적
 	이 호출은 서버가 클라이언트로부터의 새 연결 요청을 감지하기 위해 필요하다. EVFILT_READ 이벤트는 this->servSock 소켓에 데이터(새 연결 요청)가 도착했는지를 kqueue 시스템이 감시하게 한다.
 	클라이언트로부터 연결 요청이 들어오면, 이 이벤트가 발생하며 서버는 이를 처리할 수 있다.
 	이 방식은 효율적인 네트워크 이벤트 처리를 위해 사용되며, 서버가 동시에 여러 연결을 관리할 수 있게 해준다.
 	*/
-
+	pushEventToList(this->eventListToRegister, this->serverSocket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
 
 	// 서버의 소켓 옵션을 설정한다. default 세팅이라고 생각하면 된다.
 	// SOL_SOCKET: 옵션의 레벨(level)을 지정합니다. SOL_SOCKET은 일반적인 소켓 옵션을 설정하는 데 사용
 	// SO_REUSEADDR: 설정하려는 옵션의 이름입니다. SO_REUSEADDR은 주로 TCP 소켓에서 사용되며, 이 옵션을 설정함으로써 이전에 사용된 주소와 포트를 즉시 재사용
 	// &yes: 옵션의 값을 설정하는 매개변수입니다. 여기서 yes는 int형 변수로, SO_REUSEADDR 옵션을 사용할 것이므로 일반적으로 1로 설정됩니다. 이는 해당 소켓이 이전에 사용된 주소를 재사용할 수 있도록 허용
 	// 옵션 값의 크기
-
 	bool isReuseAddr = true;
 	setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &isReuseAddr, sizeof(int));
 
@@ -148,7 +144,7 @@ void Server::loop() {
 
 		/**
 		 * kq는 운영체제 자체에서 관리하는 kqueue에 대한 식별자이다.
-		 * 이 상황에서, connetingFds는 서버 어플리케이션 자체에서 kqueue에 등록하고자 하는 이벤트들의 리스트다.
+		 * 이 상황에서, eventListToRegister는 서버 어플리케이션 자체에서 kqueue에 등록하고자 하는 이벤트들의 리스트다.
 		 * kevent를 호출하면, 커널에서는 kqueue에 등록된 kevent 구조체들에 대해서, 이벤트가 발생한 경우 eventList에 새 이벤트들을 담아준다.
 		 *
 		 * 동작 흐름
