@@ -10,7 +10,7 @@ int main(int ac, char* av[]) {
 		Server ircServ(av[1], av[2]);
 		ircServ.init();
 		ircServ.loop();
-		std::cout << "안녕하세요" << std::endl;
+		std::cout << "hello world!" << std::endl;
 	}
 	catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
