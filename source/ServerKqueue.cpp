@@ -66,7 +66,7 @@ void Server::init() {
 		throw std::runtime_error("Error : bind");
 	if (listen(servSock, CONNECT) == -1)
 		throw std::runtime_error("Error : listen");
-	
+
 	fcntl(servSock, F_SETFL, O_NONBLOCK);
 
 	this->running = true;
@@ -83,7 +83,7 @@ void Server::loop() {
 		new_events = kevent(this->kq, &this->connectingFds[0], this->connectingFds.size(), eventList, 15, NULL);
 
 		this->connectingFds.clear();
-	
+
 		for (int i = 0; i < new_events; i++) {
 			if (eventList[i].flags & EV_ERROR) {
 				if (eventList[i].ident == this->servSock) {

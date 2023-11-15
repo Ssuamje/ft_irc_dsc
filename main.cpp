@@ -29,7 +29,7 @@ int main(int ac, char* av[]) {
 
 	// 유효성 검사
 	if (ac != 3) {
-		std::cerr << "Error : ./ircserv [port] [password]" << std::endl;
+		std::cerr << "Usage : ./ircserv [port] [password]" << std::endl;
 		return 1;
 	}
 
@@ -38,7 +38,6 @@ int main(int ac, char* av[]) {
 		Server ircServ(av[1], av[2]);
 		ircServ.init();
 		ircServ.loop();
-		std::cout << "hello world!" << std::endl;
 	}
 	catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
