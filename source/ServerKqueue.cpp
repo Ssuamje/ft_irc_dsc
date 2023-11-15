@@ -81,12 +81,27 @@ void Server::init() {
 	this->servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	this->servAddr.sin_port = htons(this->port);
 
-
 	// event를 kqueue에 추가한다.
 	// eventListToRegister는 현재 서버와 연결된 fd를 포함한 kevent vector다.
 	// EVFILT_READ는 파일 디스크립터에서 읽기 가능한 데이터가 있는지를 검사하는 필터
 	// 이벤트를 추가, 활성화 한다.
 	pushEventToList(this->eventListToRegister, this->serverSocket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, NULL);
+	/*
+	서버의 메인 소켓(this->servSock)에 대한 읽기 이벤트(EVFILT_READ)를 this->eventListToRegister 벡터에 추가한다.
+	이 함수 호출은 kqueue 이벤트 모니터링 시스템을 설정하는 데 사용된다.
+
+	1) 함수 호출 분석
+	this->eventListToRegister: 이벤트를 추가할 kqueue 이벤트 벡터. 이 벡터는 struct kevent 객체들을 저장하며, kqueue에 등록될 각종 이벤트를 관리한다.
+	this->servSock: 이벤트를 감지할 대상인 서버의 메인 소켓 파일 디스크립터.
+	EVFILT_READ: 읽기 이벤트 필터. 새로운 클라이언트 연결이 들어오는 것을 감지하는 데 사용된다.
+	EV_ADD | EV_ENABLE: 이벤트 플래그. EV_ADD는 새 이벤트를 추가하라는 지시이며, EV_ENABLE는 이벤트를 활성화하라는 의미다.
+	0, 0, NULL: kevent 함수의 추가 인자들로, 이 경우 특별한 기능을 수행하지 않는다.
+	2) 코드의 목적
+	이 호출은 서버가 클라이언트로부터의 새 연결 요청을 감지하기 위해 필요하다. EVFILT_READ 이벤트는 this->servSock 소켓에 데이터(새 연결 요청)가 도착했는지를 kqueue 시스템이 감시하게 한다.
+	클라이언트로부터 연결 요청이 들어오면, 이 이벤트가 발생하며 서버는 이를 처리할 수 있다.
+	이 방식은 효율적인 네트워크 이벤트 처리를 위해 사용되며, 서버가 동시에 여러 연결을 관리할 수 있게 해준다.
+	*/
+
 
 	// 서버의 소켓 옵션을 설정한다. default 세팅이라고 생각하면 된다.
 	// SOL_SOCKET: 옵션의 레벨(level)을 지정합니다. SOL_SOCKET은 일반적인 소켓 옵션을 설정하는 데 사용
@@ -189,7 +204,9 @@ kqueue 이벤트 모델을 사용하여 이벤트를 설정하고, 이를 관리
 작동 방식:
 1) 이벤트 구성 (EV_SET 매크로 사용):
 
-EV_SET 매크로는 struct kevent 구조체를 초기화하는 데 사용된다. 이 구조체는 kevent 함수에 의해 모니터링될 이벤트의 세부 사항을 정의한다.
+EV_SET 매크로는 struct kevent 구조체를 초기화하는 데 사용된다.
+이 구조체는 kevent 함수에 의해 모니터링될 이벤트의 세부 사항을 정의한다.
+
 ident: 이벤트가 연결될 파일 디스크립터 또는 식별자입니다.
 filter: 이벤트의 유형을 지정합니다 (예: EVFILT_READ는 읽기 이벤트).
 flags: 이벤트에 대한 작업을 지정합니다 (예: EV_ADD는 이벤트 추가).
