@@ -182,6 +182,25 @@ bool Server::isServerEvent(uintptr_t ident) {
 	return (ident == this->serverSocket);
 }
 
+/*
+요약:
+kqueue 이벤트 모델을 사용하여 이벤트를 설정하고, 이를 관리할 목록인 kquvec 벡터에 추가하는 역할을 한다.
+
+작동 방식:
+1) 이벤트 구성 (EV_SET 매크로 사용):
+
+EV_SET 매크로는 struct kevent 구조체를 초기화하는 데 사용된다. 이 구조체는 kevent 함수에 의해 모니터링될 이벤트의 세부 사항을 정의한다.
+ident: 이벤트가 연결될 파일 디스크립터 또는 식별자입니다.
+filter: 이벤트의 유형을 지정합니다 (예: EVFILT_READ는 읽기 이벤트).
+flags: 이벤트에 대한 작업을 지정합니다 (예: EV_ADD는 이벤트 추가).
+fflags: 필터별 플래그, 필터에 따라 특정 작동을 정의합니다.
+data: 필터에 의해 사용될 추가 데이터.
+udata: 사용자 정의 데이터, 필터에 의해 사용될 수 있습니다.
+
+2) 이벤트 목록에 추가:
+초기화된 struct kevent 객체 tmp를 list (이벤트 목록을 나타내는 kquvec 벡터)에 추가합니다.
+이렇게 하면 해당 이벤트가 kqueue 시스템에 의해 추후 모니터링될 수 있도록 준비됩니다.
+*/
 void Server::pushEventToList(kquvec& list, uintptr_t ident, int16_t filter, uint16_t flags, uint32_t fflags, intptr_t data, void* udata) {
 	struct kevent toPut;
 
